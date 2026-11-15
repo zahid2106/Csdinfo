@@ -3,7 +3,6 @@ name: Build APK
 on:
   push:
     branches: [ main, master ]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -11,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Find project folder
+        id: loc
+        run: |
+          f=$(find . -name settings.gradle.kts | head -1)
+          if [ -z "$f" ]; then echo "settings.gradle.kts not found - upload the project files"; exit 1; fi
+          echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
         with:
@@ -22,17 +28,19 @@ jobs:
           gradle-version: 8.9
 
       - name: Unit tests
+        working-directory: ${{ steps.loc.outputs.dir }}
         run: gradle testDebugUnitTest --no-daemon
 
       - name: Build debug and release APK
+        working-directory: ${{ steps.loc.outputs.dir }}
         run: gradle assembleDebug assembleRelease --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
           name: CSD-Info-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: ${{ steps.loc.outputs.dir }}/app/build/outputs/apk/debug/*.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: CSD-Info-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: ${{ steps.loc.outputs.dir }}/app/build/outputs/apk/release/*.apk
